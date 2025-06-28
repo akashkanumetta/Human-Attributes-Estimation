@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selfie Camera - Age, Height & Weight Detection</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+    <style>
+        body { 
+            text-align: center; 
+            font-family: Arial, sans-serif;
+            background: rgb(33,147,171);
+            background: linear-gradient(90deg, rgba(33,147,171,1) 0%, rgba(164,13,212,1) 143%, rgba(2,0,36,1) 143%);
+        }
+        video { 
+            transform: scaleX(-1); 
+            border: 2px solid #333; 
+            border-radius: 10px; 
+        }
+        canvas { display: none; }
+        #output { font-size: 18px; margin-top: 10px; color: white; }
+        h1 { color: white; }
+        .info {
+            font-size: 20px;
+            color: white;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Selfie Camera - Age, Height & Weight Detection</h1>
+    
+    <video id="video" width="640" height="480" autoplay playsinline></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+    
+    <p id="output">Detecting...</p>
+    <p id="ageDisplay" class="info"></p>
+    <p id="heightDisplay" class="info"></p>
+    <p id="weightDisplay" class="info"></p>
+    <p id="genderDisplay" class="info"></p>
+
+    <script>
+        async function setupCamera() {
+            const video = document.getElementById("video");
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "user" }
+                });
+                video.srcObject = stream;
+            } catch (error) {
+                console.error("Error accessing webcam:", error);
+            }
+        }
+
+        async function detectFace() {
+            const video = document.getElementById("video");
+            const model = await blazeface.load();
+
+            setInterval(async () => {
+                const predictions = await model.estimateFaces(video, false);
+                const outputText = document.getElementById("output");
+
+                if (predictions.length > 0) {
+                    outputText.innerText = " ";
+
+                    // **Estimate Age (Placeholder for real model)**
+                    const estimatedAge = Math.floor(Math.random() * 40) + 10; // Random age for now
+                    document.getElementById("ageDisplay").innerText = `Estimated Age: ${estimatedAge} years`;
+                } else {
+                    outputText.innerText = "No face detected";
+                }
+            }, 1000);
+        }
+
+        async function getPredictions() {
+            const video = document.getElementById("video");
+
+            setInterval(async () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                canvas.toBlob(async (blob) => {
+                    const formData = new FormData();
+                    formData.append("file", blob, "image.jpg");
+
+                    try {
+                        const response = await fetch("http://127.0.0.1:8000/predict/", {
+                            method: "POST",
+                            body: formData,
+                        });
+
+                        const data = await response.json();
+
+                        document.getElementById("heightDisplay").innerText = `Estimated Height: ${data.height} ft`;
+                        document.getElementById("weightDisplay").innerText = `Estimated Weight: ${data.weight} kg`;
+                        document.getElementById("genderDisplay").innerText = `Gender: ${data.gender}`;
+
+                    } catch (error) {
+                        console.error("Error fetching predictions:", error);
+                    }
+                }, "image/jpeg");
+            }, 5000); // Fetch every 5 seconds
+        }
+
+        setupCamera().then(() => {
+            detectFace();
+            getPredictions();
+        });
+    </script>
+</body>
+</html>
